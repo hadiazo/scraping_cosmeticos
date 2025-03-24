@@ -1,9 +1,9 @@
 import requests
-import json
 import pandas as pd
+import os
 
 # Tu API Key de Google Places
-API_KEY = 'AIzaSyBTFrNLF-KSmCWzqpQOUhZgsI73imO6YVU'
+API_KEY = os.environ.get('API_KEY')
 
 # Coordenadas aproximadas de Bogotá
 latitude = 4.7110
