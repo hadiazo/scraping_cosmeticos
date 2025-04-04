@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario Dinámico</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        #query-result { margin-top: 20px; font-weight: bold; }
+    </style>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css')}}">
+</head>
+<body>
+
+    <form id="dynamic-form" method="POST" action="/">
+        <div id="form-container">
+            <div class="row">
+                <input type="text" name="input1[]" placeholder="Ingrese texto">
+                <button type="button" id="add-row">Agregar</button>
+            </div>
+        </div>
+        <button type="submit">Enviar</button>
+    </form>
+
+    <div id="query-result" style="display: none;">
+        <select id="business-dropdown">
+            <option value="">Seleccione un negocio</option>
+        </select>
+        <button id="show-comments" style="display: none;">Ver Comentarios</button>
+    </div>
+
+    <div id="comments-section"></div>
+
+    <script>
+        $(document).ready(function () {
+            $("#add-row").click(function () {
+                let newRow = `
+                    <div class="row">
+                        <select name="selector[]">
+                            <option value="AND">AND</option>
+                            <!--option value="OR">OR</option-->
+                        </select>
+                        <input type="text" name="extraInput[]" placeholder="Ingrese nuevo campo">
+                        <button type="button" class="remove-row">Eliminar</button>
+                    </div>`;
+                $("#form-container").append(newRow);
+            });
+
+            $(document).on("click", ".remove-row", function () {
+                $(this).closest(".row").remove();
+            });
+
+            $("#dynamic-form").submit(function (event) {
+                event.preventDefault();
+
+                let isValid = true;
+                let query = "";
+
+                // Obtener el primer campo de texto
+                let firstInput = $("input[name='input1[]']").val().trim();
+                if (firstInput === "") {
+                    isValid = false;
+                } else {
+                    query += firstInput; // Agregar el primer input a la consulta
+                }
+
+                // Recorrer las filas adicionales
+                $(".row").not(":first").each(function () {
+                    let selector = $(this).find("select").val(); // Valor del select
+                    let extraInput = $(this).find("input[name='extraInput[]']").val().trim(); // Texto del campo extra
+
+                    if (extraInput === "") {
+                        isValid = false;
+                        return false; // Detener el recorrido
+                    }
+                    //query += ` ${selector}`;
+                    query += ` ${extraInput}`; // Agregar a la consulta
+                });
+
+                if (!isValid) {
+                    alert("Por favor, complete todos los campos antes de enviar.");
+                    return;
+                }
+
+                // Enviar la consulta a Flask usando AJAX
+                $.post("/", { query: query }, function(response) {
+                    results = JSON.parse(response.query)
+                    populateDropdown(results);
+                });
+            });
+
+            function populateDropdown(dataArray) {
+                let dropdownContainer = $("#query-result");
+                let dropdown = $("#business-dropdown");
+                let commentsButton = $("#show-comments");
+                dropdown.empty(); // Limpiar opciones previas
+                dropdown.append('<option value="">Seleccione un negocio</option>'); // Opción por defecto
+
+                dataArray.forEach(business => {
+                    let option = $("<option></option>")
+                        .val(business.id)
+                        .text(business.name)
+                        .data("comments", business.comments);
+                    dropdown.append(option);
+                });
+                dropdownContainer.show();
+
+                commentsButton.hide(); // Ocultar botón al inicio
+
+                dropdown.change(function () {
+                    if ($(this).val() !== "") {
+                        commentsButton.show(); // Mostrar botón si hay un negocio seleccionado
+                        console.log($(this).val())
+                    } else {
+                        commentsButton.hide(); // Ocultar si no se selecciona nada
+                    }
+                });
+            }
+
+            $("#show-comments").click(function () {
+                let selectedOption = $("#business-dropdown option:selected");
+                let comments = selectedOption.data("comments");
+                console.log(comments)
+                displayComments(comments);
+            });
+
+            function displayComments(comments) {
+                let commentsSection = $("#comments-section");
+                commentsSection.empty(); // Limpiar comentarios previos
+
+                if (comments.length === 0) {
+                    commentsSection.append("<p>No hay comentarios disponibles.</p>");
+                    return;
+                }
+                comments.forEach(comment => {
+                    let commentHTML = `
+                        <div class="comment">
+                            <strong>${comment.author}</strong> ⭐ ${comment.rating}/5 <br>
+                            <p>${comment.text}</p>
+                        </div>
+                    `;
+                    commentsSection.append(commentHTML);
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>
